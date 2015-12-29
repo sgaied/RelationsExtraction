@@ -14,15 +14,15 @@ object EntityExtraction {
 
     // setup per partition
     // creates a StanfordCoreNLP object, with POS tagging, lemmatization, NER, parsing, and coreference resolution
-    props = new Properties()
+    val props = new Properties()
     props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner, parse, dcoref")
-    pipeline = new StanfordCoreNLP(props)
+    val pipeline = new StanfordCoreNLP(props)
 
 
     // run all Annotators on this text
 
     p.map(line => {
-      document = new Annotation(line)
+      val document = new Annotation(line)
       pipeline.annotate(document)
       // do something else with the document returning always ("toto", "tata")
       ("toto", "tata")
@@ -32,7 +32,7 @@ object EntityExtraction {
 
   def main (args: Array[String]){
 
-    val logFile = "src/main/resources/sentences" // Should be some file on your system
+    val logFile = "src/main/resources/sentences.txt" // Should be some file on your system
     val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
     val sc = new SparkContext(conf)
     val input = sc.textFile(logFile, 2).cache()
