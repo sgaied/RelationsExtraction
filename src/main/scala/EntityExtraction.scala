@@ -1,7 +1,7 @@
 import java.util.Properties
 
 import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation
-import edu.stanford.nlp.pipeline.Annotation
+import edu.stanford.nlp.pipeline.{Annotation, StanfordCoreNLP}
 import edu.stanford.nlp.trees.Tree
 import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation
 import org.apache.spark.{SparkConf, SparkContext}
@@ -13,40 +13,41 @@ import scala.collection.JavaConversions._
   */
 object EntityExtraction {
 
-
-
-  def main (args: Array[String]){
-
-/*    if (args.length < 2) {
-      System.err.println("Please set arguments for <s3_input_dir> <s3_output_dir>")
-      System.exit(1)
-    }
-    val inputDir = args(0)
-    val outputDir = args(1)*/
-
-    val inputDir = "src/main/resources/sentences.txt"
-    val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
-    val sc = new SparkContext(conf)
-    val textFile = sc.textFile(inputDir)
-
-    textFile.mapPartitions{ lines =>
-      val properties = new Properties()
-      // annotator parse needs ssplit and tokenize
-      properties.setProperty("annotators", "tokenize, ssplit, parse")
-      val pipeline = new SparkCoreNLP(properties).get
-      lines.map {
-        line =>
-          val document = new Annotation(line)
-          pipeline.annotate(document)
-          val sentences = document.get(classOf[SentencesAnnotation])
-          var sentenceTrees = List[Tree]()
-          sentences.map { sentence =>
-            val tree = sentence.get(classOf[TreeAnnotation])
-            sentenceTrees ::= tree
-          }
-          sentenceTrees
-      }
-    }.foreach(println) // Rdd[Tree]
-    sc.stop()
+  def getTree(s: String, pipeline: StanfordCoreNLP) = {
+    val document = new Annotation(s)
+    pipeline.annotate(document)
+    val sentences = document.get(classOf[SentencesAnnotation])
+    var sentenceTrees = List[Tree]()
+    // this is a scala map not an rdd map
+    sentences.foreach(sentenceTrees::= _.get(classOf[TreeAnnotation]))
+    sentenceTrees
   }
+
+  def partitionGetTrees(iter: Iterator[String]): Iterator[List[Tree]] = {
+    // CoreNLP Initialisation
+    val properties = new Properties()
+    // annotator parse needs ssplit and tokenize
+    properties.setProperty("annotators", "tokenize, ssplit, parse")
+
+    // not sure if transient lazy is better than mapPartition
+    // val pipeline = new SparkCoreNLP(properties).get
+    iter.map(line => getTree(line, new StanfordCoreNLP(properties)))
+  }
+
+def main(args: Array[String]) {
+  /*    if (args.length < 2) {
+        System.err.println("Please set arguments for <s3_input_dir> <s3_output_dir>")
+        System.exit(1)
+      }
+      val inputDir = args(0)
+      val outputDir = args(1)*/
+  val inputDir = "src/main/resources/sentences.txt"
+  val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
+  val sc = new SparkContext(conf)
+  val textFile = sc.textFile(inputDir)
+
+  textFile.mapPartitions(lines => partitionGetTrees(lines)).foreach(println) // Rdd[Tree]
+
+  sc.stop()
+}
 }
