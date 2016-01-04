@@ -1,43 +1,52 @@
 import java.util.Properties
 
-import edu.stanford.nlp.pipeline.{Annotation, StanfordCoreNLP}
-import org.apache.spark.{SparkContext, SparkConf}
+import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation
+import edu.stanford.nlp.pipeline.Annotation
+import edu.stanford.nlp.trees.Tree
+import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation
+import org.apache.spark.{SparkConf, SparkContext}
+
+import scala.collection.JavaConversions._
 
 /**
   * Created by nico on 28/12/2015.
   */
 object EntityExtraction {
 
-  // Proably need to change  the iterator[(String, String)] to match the output results of each rdd map ?
-  // In this example returning for each map a tuple of 2 strings
-  def extractNER(p : Iterator[String]): Iterator[(String, String)] = {
 
-    // setup per partition
-    // creates a StanfordCoreNLP object, with POS tagging, lemmatization, NER, parsing, and coreference resolution
-    val props = new Properties()
-    props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner, parse, dcoref")
-    val pipeline = new StanfordCoreNLP(props)
-
-
-    // run all Annotators on this text
-
-    p.map(line => {
-      val document = new Annotation(line)
-      pipeline.annotate(document)
-      // do something else with the document returning always ("toto", "tata")
-      ("toto", "tata")
-
-    })
-  }
 
   def main (args: Array[String]){
 
-    val logFile = "src/main/resources/sentences.txt" // Should be some file on your system
+/*    if (args.length < 2) {
+      System.err.println("Please set arguments for <s3_input_dir> <s3_output_dir>")
+      System.exit(1)
+    }
+    val inputDir = args(0)
+    val outputDir = args(1)*/
+
+    val inputDir = "src/main/resources/sentences.txt"
     val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
     val sc = new SparkContext(conf)
-    val input = sc.textFile(logFile, 2).cache()
-    // change output directory
-    input.mapPartitions(p => extractNER(p)).map(x => x._2).saveAsTextFile("/Users/nico/Desktop/test")
-  }
+    val textFile = sc.textFile(inputDir)
 
+    textFile.mapPartitions{ lines =>
+      val properties = new Properties()
+      // annotator parse needs ssplit and tokenize
+      properties.setProperty("annotators", "tokenize, ssplit, parse")
+      val pipeline = new SparkCoreNLP(properties).get
+      lines.map {
+        line =>
+          val document = new Annotation(line)
+          pipeline.annotate(document)
+          val sentences = document.get(classOf[SentencesAnnotation])
+          var sentenceTrees = List[Tree]()
+          sentences.map { sentence =>
+            val tree = sentence.get(classOf[TreeAnnotation])
+            sentenceTrees ::= tree
+          }
+          sentenceTrees
+      }
+    }.foreach(println) // Rdd[Tree]
+    sc.stop()
+  }
 }
