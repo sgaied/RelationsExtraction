@@ -13,7 +13,7 @@ import scala.collection.JavaConversions._
   */
 object EntityExtraction {
 
-  def getTree(s: String, pipeline: StanfordCoreNLP) = {
+  def getTrees(s: String, pipeline: StanfordCoreNLP) = {
     val document = new Annotation(s)
     pipeline.annotate(document)
     val sentences = document.get(classOf[SentencesAnnotation])
@@ -31,7 +31,7 @@ object EntityExtraction {
 
     // not sure if transient lazy is better than mapPartition
     // val pipeline = new SparkCoreNLP(properties).get
-    iter.map(line => getTree(line, new StanfordCoreNLP(properties)))
+    iter.map(line => getTrees(line, new StanfordCoreNLP(properties)))
   }
 
 def main(args: Array[String]) {
