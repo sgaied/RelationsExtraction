@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.capgemini.id</groupId>
-    <artifactId>EntityExtraction</artifactId>
+    <artifactId>RelationsExtraction</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
