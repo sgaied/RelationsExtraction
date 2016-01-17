@@ -11,7 +11,7 @@ import scala.collection.JavaConversions._
 /**
   * Created by nico on 28/12/2015.
   */
-object RelationsExtraction {
+object RelationExtraction {
 
   def getTrees(s: String, pipeline: StanfordCoreNLP) = {
     val document = new Annotation(s)
