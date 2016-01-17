@@ -1,4 +1,5 @@
 import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation
+import edu.stanford.nlp.ling.IndexedWord
 import edu.stanford.nlp.pipeline.{Annotation, StanfordCoreNLP}
 import edu.stanford.nlp.semgraph.SemanticGraph
 import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation
@@ -12,39 +13,13 @@ import scala.collection.JavaConversions._
   */
 class Relation {
 
+  private val set_modifiers = Set(UniversalEnglishGrammaticalRelations.ADJECTIVAL_MODIFIER,
+    UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER,
+    UniversalEnglishGrammaticalRelations.NUMERIC_MODIFIER,
+    UniversalEnglishGrammaticalRelations.getNmod("of"))
 
-  //  def main(args: Array[String]) {
-  //
-  //
-  //
-  //    //val inputDir = "src/main/resources/sentences.txt"
-  //    val inputDir = "src/main/resources/oil_supplychain.txt"
-  //    val conf = new SparkConf().setAppName("Relation Extraction").setMaster("local")
-  //    val sc = new SparkContext(conf)
-  //    val textFile = sc.textFile(inputDir).map(line => line.split("\\|")(1))
-  //
-  //    val properties = new Properties()
-  //    // annotator parse needs ssplit and tokenize
-  //    properties.setProperty("annotators", "tokenize, ssplit, parse, lemma")
-  //    //properties.setProperty("annotators", "tokenize, ssplit, parse, lemma, natlog, openie")
-  //
-  //    //val s = "Gaz de France provides the site with its fuel gas requirements."
-  //    // val s = "Gaz de France provides around 30-40% of the fuel gas requirements for the site."
-  //    //val s = "Crude Oil is available from the Kumkol Oil Field."
-  //    //val s = "The refinery processes local Hassi Messaoud Crude Oil, which is supplied by pipeline."
-  //    //val s = "Obama was born in Hawaii. He is our president."
-  //    //println(getRelationships(s,  new StanfordCoreNLP(properties)))
-  //
-  //
-  //    //val fw = new FileWriter("target/test.txt", true)
-  //
-  //    //textFile.map(line => getRelationships(line, new StanfordCoreNLP(properties))).foreach(println)
-  //    //textFile.map(line => getRelationships(line, new StanfordCoreNLP(properties), new FileWriter("test_2.txt", true)))
-  //
-  //    textFile.map(line => getRelationships(line, new StanfordCoreNLP(properties))).saveAsTextFile("/home/osboxes/Documents/Dev/RelationExtraction - dev/output/test3.txt")
-  //    sc.stop()
-  //  }
-
+  private val location_modifiers_set = Set(UniversalEnglishGrammaticalRelations.getNmod("in"),
+    UniversalEnglishGrammaticalRelations.getNmod("at"), UniversalEnglishGrammaticalRelations.getNmod("from"))
   /**
     * @param semGraph
     * @return True if the semGraph is passive
@@ -60,35 +35,54 @@ class Relation {
   def isPassive(semGraph: SemanticGraph) : Boolean = {
     semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT).length > 0
   }
-  
+
+  def getSupplier(semGraph: SemanticGraph, supplier: IndexedWord) : String = {
+    //TODO Should use option or Some
+    if (supplier != null) {
+      val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
+      val supplier_full = supplier_modifiers + supplier
+      val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
+      supplier_full_sorted.map(f => f.word()).mkString(" ")
+    }
+    else {
+      "" // should disapear with the null
+    }
+  }
+
+  def  getSupplierNmod(semGraph: SemanticGraph, supplier: IndexedWord) : String = {
+    if (supplier != null) {
+      val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
+
+      val supplier_nmod_location = semGraph.getChildrenWithRelns(supplier, location_modifiers_set)
+      val supplier_nmod_location_modifiers = supplier_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
+
+      val supplier_full = supplier_modifiers + supplier ++ supplier_nmod_location ++ supplier_nmod_location_modifiers
+      val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
+      supplier_full_sorted.map(f => f.word()).mkString(" ")
+    }
+    else {
+      ""
+    }
+  }
+
   /**
     * Determine the voice of the sentence :
     * If the sentence is in active voice, a 'nsubj' dependency should exist.
     * If the sentence is in passive voice a 'nsubjpass' dependency should exist
+    *
     * @param semGraph
     * @return
     */
   def relationParsing(semGraph: SemanticGraph): (String, String, String, String) = {
 
-    var voice: String = ""
+    val active = isActive(semGraph)
+    val passive = isPassive(semGraph)
 
-    if (semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT).length > 0) {
-      voice = "active"
-    }
-    if (semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT).length > 0) {
-      voice = "passive"
-    }
-
-    //println(voice)
     var res: (String, String, String, String) = ("", "", "", "")
     val root = semGraph.getFirstRoot()
 
-    val set_modifiers = Set(UniversalEnglishGrammaticalRelations.ADJECTIVAL_MODIFIER,
-      UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER,
-      UniversalEnglishGrammaticalRelations.NUMERIC_MODIFIER,
-      UniversalEnglishGrammaticalRelations.getNmod("of"))
-    val location_modifiers_set = Set(UniversalEnglishGrammaticalRelations.getNmod("in"),
-      UniversalEnglishGrammaticalRelations.getNmod("at"), UniversalEnglishGrammaticalRelations.getNmod("from"))
+
+
 
     val set_outgoing_verbs = Set("pipe", "supply", "export", "send", "provide", "render", "distribute", "sell", "ply",
       "deliver", "transport", "transfer", "transmit", "channel", "send")
@@ -114,21 +108,14 @@ class Relation {
         theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
       }
 
-      if (supplier != null) {
-        val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-        val supplier_full = supplier_modifiers + supplier
-        val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-        supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-      }
-
+      supplier_full_string = getSupplier(semGraph, supplier)
       res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
 
     }
 
-    if (voice == "active") {
-
+    // Active Voice
+    if (active) {
       if (set_outgoing_verbs.contains(root.lemma())) {
-
         val children = semGraph.childRelns(root)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val obj = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.DIRECT_OBJECT)
@@ -169,13 +156,7 @@ class Relation {
 
         }
 
-        if (supplier != null) {
-          val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-          val supplier_full = supplier_modifiers + supplier
-          val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-          supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
+        supplier_full_string = getSupplier(semGraph, supplier)
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
 
@@ -227,28 +208,19 @@ class Relation {
           theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
         }
 
-        if (supplier != null) {
-          val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-          val supplier_nmod_location = semGraph.getChildrenWithRelns(supplier, location_modifiers_set)
-          val supplier_nmod_location_modifiers = supplier_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
-          val supplier_full = supplier_modifiers + supplier ++ supplier_nmod_location ++ supplier_nmod_location_modifiers
-          val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-          supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-
-        }
-
+        supplier_full_string = getSupplierNmod(semGraph, supplier)
         res = (root.lemma(), supplier_full_string, "", theme_full_string)
       }
     }
-    if (voice == "passive") {
+
+    // Passive voice
+    if (passive) {
       if (set_outgoing_verbs.contains(root.lemma())) {
         val root = semGraph.getFirstRoot()
         val children = semGraph.childRelns(root)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("agent"))
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("to"))
-
         if (theme != null) {
           val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
           val theme_full = theme_modifiers + theme
@@ -256,21 +228,12 @@ class Relation {
           theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
         }
 
-        if (supplier != null) {
-          val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-          //val theme_nmod_location = semGraph.getChildrenWithRelns(theme, location_modifiers_set)
-          //val theme_nmod_location_modifiers = theme_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
-          val supplier_full = supplier_modifiers + supplier //++ theme_nmod_location ++ theme_nmod_location_modifiers
-          val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-          supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-        }
+        supplier_full_string = getSupplier(semGraph, supplier)
 
         if (receiver != null) {
           val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
           //val theme_nmod_location = semGraph.getChildrenWithRelns(theme, location_modifiers_set)
           //val theme_nmod_location_modifiers = theme_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
           val receiver_full = receiver_modifiers + receiver //++ theme_nmod_location ++ theme_nmod_location_modifiers
           val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
           receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
@@ -293,15 +256,8 @@ class Relation {
           theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
         }
 
-        if (supplier != null) {
-          val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-          //val theme_nmod_location = semGraph.getChildrenWithRelns(theme, location_modifiers_set)
-          //val theme_nmod_location_modifiers = theme_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
 
-          val supplier_full = supplier_modifiers + supplier //++ theme_nmod_location ++ theme_nmod_location_modifiers
-          val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-          supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-        }
+        supplier_full_string = getSupplier(semGraph, supplier)
 
         if (receiver != null) {
           val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
@@ -318,7 +274,9 @@ class Relation {
       }
     }
 
-    if (voice == "") {
+    // Undetermined
+    if ((!active).&&(!passive)) {
+
       if (ambiguous_verbs_set.contains(root.lemma())) {
         import edu.stanford.nlp.trees.GrammaticalRelation
         val children = semGraph.childRelns(root)
@@ -377,9 +335,7 @@ class Relation {
 
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
-
     }
-
     res
   }
 
@@ -394,7 +350,7 @@ class Relation {
     Relations = CollapsedSentenceDep.map(sg => relationParsing(sg))
     val CollapsedSentenceDepString = CollapsedSentenceDep.toList.map(sg => sg.toString)
     val pair = sentences zip CollapsedSentenceDepString zip Relations
-
+    pair.mkString("=>")
     //var SentenceTriples = List[Array[RelationTriple]]()
     //sentences.foreach(SentenceTriples ::= _.get(classOf[RelationTriplesAnnotation]))
     //val SentenceTriples = sentences.get(0).get(classOf[RelationTriplesAnnotation])
@@ -409,7 +365,5 @@ class Relation {
       triple.objectLemmaGloss());
   }
   */
-
-    pair.mkString("=>")
   }
 }
