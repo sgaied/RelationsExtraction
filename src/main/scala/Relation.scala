@@ -36,13 +36,19 @@ class Relation {
     semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT).length > 0
   }
 
-  def getSupplier(semGraph: SemanticGraph, supplier: IndexedWord) : String = {
+  /**
+    *
+    * @param semanticGraph
+    * @param index could be a supplier, a theme, a receiver
+    * @return
+    */
+  def getStrFromIndex(semanticGraph: SemanticGraph, index: IndexedWord) : String = {
     //TODO Should use option or Some
-    if (supplier != null) {
-      val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-      val supplier_full = supplier_modifiers + supplier
-      val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-      supplier_full_sorted.map(f => f.word()).mkString(" ")
+    if (index != null) {
+      val index_modifiers = semanticGraph.getChildrenWithRelns(index, set_modifiers)
+      val index_full = index_modifiers + index
+      val index_full_sorted = index_full.toList.sortWith(_.index() < _.index())
+      index_full_sorted.map(f => f.word()).mkString(" ")
     }
     else {
       "" // should disapear with the null
@@ -81,9 +87,6 @@ class Relation {
     var res: (String, String, String, String) = ("", "", "", "")
     val root = semGraph.getFirstRoot()
 
-
-
-
     val set_outgoing_verbs = Set("pipe", "supply", "export", "send", "provide", "render", "distribute", "sell", "ply",
       "deliver", "transport", "transfer", "transmit", "channel", "send")
     val incoming_verbs_set = Set("receive", "get", "obtain", "incur ", "acquire", "buy", "purchase", "charter", "take",
@@ -101,16 +104,11 @@ class Relation {
       val children = semGraph.childRelns(root)
       val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
       val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
-      if (theme != null) {
-        val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-        val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-        val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-        theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-      }
 
-      supplier_full_string = getSupplier(semGraph, supplier)
+
+      theme_full_string = getStrFromIndex(semGraph, theme)
+      supplier_full_string = getStrFromIndex(semGraph, supplier)
       res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
-
     }
 
     // Active Voice
@@ -124,10 +122,7 @@ class Relation {
 
           if (obj_nmod == null) {
             val theme = obj
-            val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-            val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-            val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-            theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
+            theme_full_string = getStrFromIndex(semGraph, theme)
 
             val receiver_modifiers_set = Set(UniversalEnglishGrammaticalRelations.getNmod("to"), UniversalEnglishGrammaticalRelations.getNmod("for"))
             val theme_receivers = semGraph.getChildrenWithRelns(theme, receiver_modifiers_set)
@@ -141,73 +136,39 @@ class Relation {
 
           if (obj_nmod != null) {
             val theme_receiver = obj
-            val theme_receiver_modifiers = semGraph.getChildrenWithRelns(theme_receiver, set_modifiers)
-            val receiver_full = theme_receiver_modifiers + theme_receiver
-            val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-            receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
+            receiver_full_string = getStrFromIndex(semGraph, theme_receiver)
 
             val theme = obj_nmod
-            val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-            val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-            val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-            theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-
+            theme_full_string = getStrFromIndex(semGraph, theme)
           }
 
         }
 
-        supplier_full_string = getSupplier(semGraph, supplier)
+        supplier_full_string = getStrFromIndex(semGraph, supplier)
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
 
-      if ((incoming_verbs_set.contains(root.lemma())) | (usage_verbs_set.contains(root.lemma()))) {
+      // should it be else if ? otherwise res might be rewritten
+      if ((incoming_verbs_set.contains(root.lemma())) | usage_verbs_set.contains(root.lemma())) {
 
         val children = semGraph.childRelns(root)
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.DIRECT_OBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
 
-        if (receiver != null) {
-          val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
-          val receiver_full = receiver_modifiers + receiver
-          val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-          receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
-        if (theme != null) {
-          val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-          val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-          val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-          theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
-        if (supplier != null) {
-          val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-          val supplier_nmod_location = semGraph.getChildrenWithRelns(supplier, location_modifiers_set)
-          val supplier_nmod_location_modifiers = supplier_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
-          val supplier_full = supplier_modifiers + supplier ++ supplier_nmod_location ++ supplier_nmod_location_modifiers
-          val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-          supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-        }
+        receiver_full_string = getStrFromIndex(semGraph, receiver)
+        theme_full_string = getStrFromIndex(semGraph, theme)
+        supplier_full_string = getSupplierNmod(semGraph, supplier)
 
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
-
-
 
       if (arrival_verbs_set.contains(root.lemma())) {
         val children = semGraph.childRelns(root)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
 
-        if (theme != null) {
-          val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-          val theme_full = theme_modifiers + theme
-          val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-          theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
+        theme_full_string = getStrFromIndex(semGraph, theme)
         supplier_full_string = getSupplierNmod(semGraph, supplier)
         res = (root.lemma(), supplier_full_string, "", theme_full_string)
       }
@@ -215,61 +176,31 @@ class Relation {
 
     // Passive voice
     if (passive) {
+      val root = semGraph.getFirstRoot()
+      val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
+
       if (set_outgoing_verbs.contains(root.lemma())) {
-        val root = semGraph.getFirstRoot()
+
         val children = semGraph.childRelns(root)
-        val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
+
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("agent"))
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("to"))
-        if (theme != null) {
-          val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-          val theme_full = theme_modifiers + theme
-          val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-          theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-        }
 
-        supplier_full_string = getSupplier(semGraph, supplier)
-
-        if (receiver != null) {
-          val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
-          //val theme_nmod_location = semGraph.getChildrenWithRelns(theme, location_modifiers_set)
-          //val theme_nmod_location_modifiers = theme_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-          val receiver_full = receiver_modifiers + receiver //++ theme_nmod_location ++ theme_nmod_location_modifiers
-          val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-          receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
-
+        theme_full_string = getStrFromIndex(semGraph, theme)
+        supplier_full_string = getStrFromIndex(semGraph, supplier)
+        receiver_full_string = getStrFromIndex(semGraph, receiver)
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
+
       if (incoming_verbs_set.contains(root.lemma())) {
         val root = semGraph.getFirstRoot()
         val children = semGraph.childRelns(root)
-        val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("agent"))
 
-        if (theme != null) {
-          val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-          val theme_full = theme_modifiers + theme
-          val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-          theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
-
-        supplier_full_string = getSupplier(semGraph, supplier)
-
-        if (receiver != null) {
-          val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
-          //val theme_nmod_location = semGraph.getChildrenWithRelns(theme, location_modifiers_set)
-          //val theme_nmod_location_modifiers = theme_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
-          val receiver_full = receiver_modifiers + receiver //++ theme_nmod_location ++ theme_nmod_location_modifiers
-          val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-          receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
-        }
-
-
+        theme_full_string = getStrFromIndex(semGraph, theme)
+        supplier_full_string = getStrFromIndex(semGraph, supplier)
+        receiver_full_string = getStrFromIndex(semGraph, receiver)
         res = (root.lemma(), supplier_full_string, receiver_full_string, theme_full_string)
       }
     }
@@ -290,46 +221,19 @@ class Relation {
             val supplier = theme_from
             val receiver = nom_subj
 
-            val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-            val supplier_nmod_location = semGraph.getChildrenWithRelns(supplier, location_modifiers_set)
-            val supplier_nmod_location_modifiers = supplier_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
+            supplier_full_string = getSupplierNmod(semGraph, supplier)
+            receiver_full_string = getStrFromIndex(semGraph, receiver)
+            theme_full_string = getStrFromIndex(semGraph, theme)
 
-            val supplier_full = supplier_modifiers + supplier ++ supplier_nmod_location ++ supplier_nmod_location_modifiers
-            val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-            supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-
-            val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
-            val receiver_full = receiver_modifiers + receiver
-            val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-            receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
-
-            val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-            val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-            val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-            theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
 
           }
           else if (theme_from != null) {
             val supplier = nom_subj
             val receiver = theme_to
 
-            val supplier_modifiers = semGraph.getChildrenWithRelns(supplier, set_modifiers)
-            val supplier_nmod_location = semGraph.getChildrenWithRelns(supplier, location_modifiers_set)
-            val supplier_nmod_location_modifiers = supplier_nmod_location.flatMap(f => semGraph.getChildrenWithRelns(f, set_modifiers + UniversalEnglishGrammaticalRelations.CASE_MARKER))
-
-            val supplier_full = supplier_modifiers + supplier ++ supplier_nmod_location ++ supplier_nmod_location_modifiers
-            val supplier_full_sorted = supplier_full.toList.sortWith(_.index() < _.index())
-            supplier_full_string = supplier_full_sorted.map(f => f.word()).mkString(" ")
-
-            val receiver_modifiers = semGraph.getChildrenWithRelns(receiver, set_modifiers)
-            val receiver_full = receiver_modifiers + receiver
-            val receiver_full_sorted = receiver_full.toList.sortWith(_.index() < _.index())
-            receiver_full_string = receiver_full_sorted.map(f => f.word()).mkString(" ")
-
-            val theme_modifiers = semGraph.getChildrenWithRelns(theme, set_modifiers)
-            val theme_full = theme_modifiers + theme //++ theme_nmod_location ++ theme_nmod_location_modifiers
-            val theme_full_sorted = theme_full.toList.sortWith(_.index() < _.index())
-            theme_full_string = theme_full_sorted.map(f => f.word()).mkString(" ")
+            supplier_full_string = getSupplierNmod(semGraph, supplier)
+            receiver_full_string = getStrFromIndex(semGraph, receiver)
+            theme_full_string = getStrFromIndex(semGraph, theme)
           }
         }
 
@@ -351,6 +255,7 @@ class Relation {
     val CollapsedSentenceDepString = CollapsedSentenceDep.toList.map(sg => sg.toString)
     val pair = sentences zip CollapsedSentenceDepString zip Relations
     pair.mkString("=>")
+
     //var SentenceTriples = List[Array[RelationTriple]]()
     //sentences.foreach(SentenceTriples ::= _.get(classOf[RelationTriplesAnnotation]))
     //val SentenceTriples = sentences.get(0).get(classOf[RelationTriplesAnnotation])
