@@ -18,7 +18,6 @@ object RelationsExtraction {
     pipeline.annotate(document)
     val sentences = document.get(classOf[SentencesAnnotation])
     var sentenceTrees = List[Tree]()
-    // this is a scala map not an rdd map
     sentences.foreach(sentenceTrees::= _.get(classOf[TreeAnnotation]))
     sentenceTrees
   }
@@ -34,20 +33,20 @@ object RelationsExtraction {
     iter.map(line => getTrees(line, new StanfordCoreNLP(properties)))
   }
 
-def main(args: Array[String]) {
-  /*    if (args.length < 2) {
-        System.err.println("Please set arguments for <s3_input_dir> <s3_output_dir>")
-        System.exit(1)
-      }
-      val inputDir = args(0)
-      val outputDir = args(1)*/
-  val inputDir = "src/main/resources/sentences.txt"
-  val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
-  val sc = new SparkContext(conf)
-  val textFile = sc.textFile(inputDir)
+  def main(args: Array[String]) {
+    /*    if (args.length < 2) {
+          System.err.println("Please set arguments for <s3_input_dir> <s3_output_dir>")
+          System.exit(1)
+        }
+        val inputDir = args(0)
+        val outputDir = args(1)*/
+    val inputDir = "src/main/resources/sentences.txt"
+    val conf = new SparkConf().setAppName("Entity Extraction").setMaster("local")
+    val sc = new SparkContext(conf)
+    val textFile = sc.textFile(inputDir)
 
-  textFile.mapPartitions(lines => partitionGetTrees(lines)).foreach(println) // Rdd[Tree]
+    textFile.mapPartitions(lines => partitionGetTrees(lines)).foreach(println) // Rdd[Tree]
 
-  sc.stop()
-}
+    sc.stop()
+  }
 }
