@@ -46,6 +46,22 @@ class Relation {
   //  }
 
   /**
+    * @param semGraph
+    * @return True if the semGraph is passive
+    */
+  def isActive(semGraph: SemanticGraph) : Boolean = {
+    semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT).length > 0
+  }
+
+  /**
+    * @param semGraph
+    * @return True if the semGraph is passive
+    */
+  def isPassive(semGraph: SemanticGraph) : Boolean = {
+    semGraph.findAllRelns(UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT).length > 0
+  }
+  
+  /**
     * Determine the voice of the sentence :
     * If the sentence is in active voice, a 'nsubj' dependency should exist.
     * If the sentence is in passive voice a 'nsubjpass' dependency should exist
@@ -63,15 +79,21 @@ class Relation {
       voice = "passive"
     }
 
-    println(voice)
+    //println(voice)
     var res: (String, String, String, String) = ("", "", "", "")
     val root = semGraph.getFirstRoot()
 
-    val set_modifiers = Set(UniversalEnglishGrammaticalRelations.ADJECTIVAL_MODIFIER, UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER, UniversalEnglishGrammaticalRelations.NUMERIC_MODIFIER, UniversalEnglishGrammaticalRelations.getNmod("of"))
-    val location_modifiers_set = Set(UniversalEnglishGrammaticalRelations.getNmod("in"), UniversalEnglishGrammaticalRelations.getNmod("at"), UniversalEnglishGrammaticalRelations.getNmod("from"))
+    val set_modifiers = Set(UniversalEnglishGrammaticalRelations.ADJECTIVAL_MODIFIER,
+      UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER,
+      UniversalEnglishGrammaticalRelations.NUMERIC_MODIFIER,
+      UniversalEnglishGrammaticalRelations.getNmod("of"))
+    val location_modifiers_set = Set(UniversalEnglishGrammaticalRelations.getNmod("in"),
+      UniversalEnglishGrammaticalRelations.getNmod("at"), UniversalEnglishGrammaticalRelations.getNmod("from"))
 
-    val set_outgoing_verbs = Set("pipe", "supply", "export", "send", "provide", "render", "distribute", "sell", "ply", "deliver", "transport", "transfer", "transmit", "channel", "send")
-    val incoming_verbs_set = Set("receive", "get", "obtain", "incur ", "acquire", "buy", "purchase", "charter", "take", "bring", "source", "gather", "collect", "import", "extract", "derive", "procure")
+    val set_outgoing_verbs = Set("pipe", "supply", "export", "send", "provide", "render", "distribute", "sell", "ply",
+      "deliver", "transport", "transfer", "transmit", "channel", "send")
+    val incoming_verbs_set = Set("receive", "get", "obtain", "incur ", "acquire", "buy", "purchase", "charter", "take",
+      "bring", "source", "gather", "collect", "import", "extract", "derive", "procure")
     val ambiguous_verbs_set = Set("ship")
     val arrival_verbs_set = Set("come", "arrive", "get")
     val usage_verbs_set = Set("use", "consume", "enjoy", "benefit", "employ", "apply", "exploit", "tap", "utilize", "")
@@ -361,7 +383,7 @@ class Relation {
     res
   }
 
-  def getRelationships(s: String, pipeline: StanfordCoreNLP) = {
+  def getRelationships(s: String, pipeline: StanfordCoreNLP) : String = {
 
     val document = new Annotation(s)
     pipeline.annotate(document)
@@ -386,7 +408,6 @@ class Relation {
       triple.relationLemmaGloss() + "\t" +
       triple.objectLemmaGloss());
   }
-
   */
 
     pair.mkString("=>")
