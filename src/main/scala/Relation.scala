@@ -106,7 +106,14 @@ class Relation {
 
 
     val copula = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.COPULA)
+
+    //The following code assigns supplier, receiver and theme via sentence tree parsing
+    // and as a function of the root verb type
     //TODO Replace all the null testing
+    // IF the verb is coupula (eg., "is available from"), the theme head word will be located in the nominal subject
+    // of the root verb and the supplier will be connected to root via a modifier : "nmod:from".
+    // Function getStrFromIndex enriches the theme and supplier head words by the modifiers from the set set_modifiers
+    // Function getTupleRelation creates a list from the root, supplierFullString, receiverFullString,themeFullString
     if (copula != null) {
       val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
       val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
@@ -120,6 +127,19 @@ class Relation {
     else if (active) {
 
       if (outgoingVerbsSet.contains(root.lemma())) {
+        // IF voice of the sentence is active and the root verb belongs to the outgoingVerbsSet,
+        // the Sentence may look either like "Supplier supplies receiver WITH theme"
+        // or "Supplier supplies theme TO receiver"
+        // In both cases, the supplier head word will the root's nominal subject .
+        // In the first case, receiver's head word will be root's direct object, while theme will be receiver's Nmod:with
+        // In the second case, theme's head word will be root's direct object, while the receiver head word will
+        // be connected to theme via Nmod:to or Nmod:for.
+        // Which case we are in depends on whether the direct object of root has an Nmod:with dependency
+        // Function getStrFromIndex enriches the theme and supplier head words by the modifiers from the set
+        // set_modifiers thus transforming the respective head words into the full entities.
+        // Function getTupleRelation creates a list from the
+        // root, supplierFullString, receiverFullString,themeFullString
+
         var theme : IndexedWord = null
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val obj = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.DIRECT_OBJECT)
@@ -152,6 +172,17 @@ class Relation {
 
       // should it be else if ? otherwise res might be rewritten
       if ((incomingVerbsSet.contains(root.lemma())) | usageVerbsSet.contains(root.lemma())) {
+        // IF voice of the sentence is active and the root verb belongs to the incomingVerbsSet or usageVerbsSet,
+        // the Sentence may look either like "Receiver obtains theme from Supplier"
+        // or "Receiver uses theme from Supplier"
+        // In both cases, the receiver head word will the root's nominal subject .
+        // The theme head word will be root's direct object, while supplier's head word will be root's Nmod:from
+        // Function getStrFromIndex enriches the theme and supplier head words by the modifiers from the set
+        // set_modifiers thus transforming the respective head words into the full entities.
+        // Function getTupleRelation creates a list from the
+        // root, supplierFullString, receiverFullString,themeFullString
+
+
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.DIRECT_OBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
@@ -162,7 +193,7 @@ class Relation {
         res = getTupleRelation(root, supplierFullString, receiverFullString, themeFullString)
       }
 
-      // Could this be a test with copula ?
+      // Could this be a test with copula ? - NON
       if (arrivalVerbsSet.contains(root.lemma())) {
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_SUBJECT)
         val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
@@ -176,12 +207,24 @@ class Relation {
     // Passive voice
     else if (passive) {
       if (outgoingVerbsSet.contains(root.lemma())) {
+        // IF voice of the sentence is passive and the root verb belongs to the outgoingVerbsSet,
+        // the Sentence looks like "Theme is supplied to receiver by/from supplier"
+        // The theme's head word will the root's nominal passive subject .
+        // Receiver's head word will be connected to root as Nmod:to
+        // Supplier will be connected to root as an agent (Nmod:by)root's direct object, while the receiver head word will
+        // be connected to theme via Nmod:to or Nmod:for.
+        // Function getStrFromIndex enriches the theme and supplier head words by the modifiers from the set
+        // set_modifiers thus transforming the respective head words into the full entities.
+        // Function getTupleRelation creates a list from the
+        // root, supplierFullString, receiverFullString,themeFullString
         val root = semGraph.getFirstRoot()
         val children = semGraph.childRelns(root)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
-        val supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("agent"))
+        var supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("agent"))
         val receiver = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("to"))
-
+        if (supplier == null) {
+          supplier = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.getNmod("from"))
+        }
         themeFullString = getStrFromIndex(semGraph, theme)
         supplierFullString = getStrFromIndex(semGraph, supplier)
         receiverFullString = getStrFromIndex(semGraph, receiver)
@@ -189,7 +232,17 @@ class Relation {
       }
 
       // should it be else if ? otherwise res might be rewritten
-      if (incomingVerbsSet.contains(root.lemma())) {
+      else if (incomingVerbsSet.contains(root.lemma())) {
+        // IF voice of the sentence is passive and the root verb belongs to the incomingVerbsSet,
+        // the Sentence looks like "Theme is obtained by receiver from supplier"
+        // The theme's head word will the root's nominal passive subject .
+        // Receiver's head word will be connected to root as an agent (Nmod:by)
+        // Supplier will be connected to root as an agent (Nmod:from)
+        // Function getStrFromIndex enriches the theme and supplier head words by the modifiers from the set
+        // set_modifiers thus transforming the respective head words into the full entities.
+        // Function getTupleRelation creates a list from the
+        // root, supplierFullString, receiverFullString,themeFullString
+
         val root = semGraph.getFirstRoot()
         val children = semGraph.childRelns(root)
         val theme = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.NOMINAL_PASSIVE_SUBJECT)
@@ -202,17 +255,24 @@ class Relation {
         res = getTupleRelation(root, supplierFullString, receiverFullString, themeFullString)
       }
     }
+    // if root verb lemme belongs to the list of undetermined verbs (neither incoming nor outgoing)
+    //
+    if (ambiguousVerbsSet.contains(root.lemma())) {
+      // if root verb lemme belongs to the list of undetermined verbs (neither incoming nor outgoing)
+      // ex., "ship" that can be both incoming ("Receiver has shipped the theme from Supplier")
+      // or outgoing ("Supplier shipped the theme to the receiver)
+      // Which case takes place is determined by theme head word modifier ("from" or "to")
+      // In both cases, theme head word is a dependent of the root
+      // In the first case, Supplier head word is linked to the theme by Nmod:from, while receiver is
+      // the root's compound modifier.
+      // In the second case, supplier's head word is the root's compound modifier, while
+      // receiver is linked to theme via modifier Nmod:to
+      val nom_subj = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER)
+      val theme = semGraph.getChildWithReln(root, GrammaticalRelation.DEPENDENT)
+      val theme_from = semGraph.getChildWithReln(theme, UniversalEnglishGrammaticalRelations.getNmod("from"))
+      val theme_to = semGraph.getChildWithReln(theme, UniversalEnglishGrammaticalRelations.getNmod("to"))
 
-    // Undetermined
-    else if ((!active).&&(!passive)) {
-
-      if (ambiguousVerbsSet.contains(root.lemma())) {
-        val nom_subj = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER)
-        val theme = semGraph.getChildWithReln(root, GrammaticalRelation.DEPENDENT)
-        val theme_from = semGraph.getChildWithReln(theme, UniversalEnglishGrammaticalRelations.getNmod("from"))
-        val theme_to = semGraph.getChildWithReln(theme, UniversalEnglishGrammaticalRelations.getNmod("to"))
-
-        if (theme != null) {
+      if (theme != null) {
           if (theme_from != null) {
             val supplier = theme_from
             val receiver = nom_subj
@@ -221,7 +281,7 @@ class Relation {
             receiverFullString = getStrFromIndex(semGraph, receiver)
             themeFullString = getStrFromIndex(semGraph, theme)
           }
-            // WARNING THIS IS OVERRIDE PREVIOUS
+          // WARNING THIS IS OVERRIDE PREVIOUS
           else if (theme_to != null) {
             val supplier = nom_subj
             val receiver = theme_to
@@ -233,7 +293,7 @@ class Relation {
         }
         res = getTupleRelation(root, supplierFullString, receiverFullString, themeFullString)
       }
-    }
+
     // IF THiS are only else if we can do:
     // res = getTupleRelation(root, supplierFullString, receiverFullString, themeFullString)
     res
@@ -243,28 +303,17 @@ class Relation {
 
     val document = new Annotation(s)
     pipeline.annotate(document)
+    // Parsing document into sentences
     val sentences = document.get(classOf[SentencesAnnotation])
+    //creating a list of Semantic Graphs :  to each sentence there is a semantic graph associated
     var CollapsedSentenceDep = List[SemanticGraph]()
     sentences.foreach(CollapsedSentenceDep ::= _.get(classOf[CollapsedCCProcessedDependenciesAnnotation]))
     var Relations = List[(String, String, String, String)]()
     Relations = CollapsedSentenceDep.map(sg => relationParsing(sg))
-    val CollapsedSentenceDepString = CollapsedSentenceDep.toList.map(sg => sg.toString)
+    val CollapsedSentenceDepString = CollapsedSentenceDep.map(sg => sg.toString)
     val pair = sentences zip CollapsedSentenceDepString zip Relations
     pair.mkString("=>")
 
-    //var SentenceTriples = List[Array[RelationTriple]]()
-    //sentences.foreach(SentenceTriples ::= _.get(classOf[RelationTriplesAnnotation]))
-    //val SentenceTriples = sentences.get(0).get(classOf[RelationTriplesAnnotation])
 
-    /*
-  Collection<RelationTriple> triples = sentence.get(NaturalLogicAnnotations.RelationTriplesAnnotation.class);
-  // Print the triples
-  for (RelationTriple triple : triples) {
-    System.out.println(triple.confidence + "\t" +
-      triple.subjectLemmaGloss() + "\t" +
-      triple.relationLemmaGloss() + "\t" +
-      triple.objectLemmaGloss());
-  }
-  */
   }
 }
