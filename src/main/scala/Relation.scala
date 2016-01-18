@@ -117,7 +117,7 @@ class Relation {
     }
 
     // Active Voice
-    if (active) {
+    else if (active) {
 
       if (outgoingVerbsSet.contains(root.lemma())) {
         var theme : IndexedWord = null
@@ -174,7 +174,7 @@ class Relation {
     }
 
     // Passive voice
-    if (passive) {
+    else if (passive) {
       if (outgoingVerbsSet.contains(root.lemma())) {
         val root = semGraph.getFirstRoot()
         val children = semGraph.childRelns(root)
@@ -204,7 +204,7 @@ class Relation {
     }
 
     // Undetermined
-    if ((!active).&&(!passive)) {
+    else if ((!active).&&(!passive)) {
 
       if (ambiguousVerbsSet.contains(root.lemma())) {
         val nom_subj = semGraph.getChildWithReln(root, UniversalEnglishGrammaticalRelations.COMPOUND_MODIFIER)
@@ -221,8 +221,8 @@ class Relation {
             receiverFullString = getStrFromIndex(semGraph, receiver)
             themeFullString = getStrFromIndex(semGraph, theme)
           }
-            // WARNING THIS IS NEVER CALLED
-          else if (theme_from != null) {
+            // WARNING THIS IS OVERRIDE PREVIOUS
+          else if (theme_to != null) {
             val supplier = nom_subj
             val receiver = theme_to
 
