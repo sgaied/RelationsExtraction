@@ -9,6 +9,7 @@ import org.scalatest.FlatSpec
   */
 
 class RelationSpec extends FlatSpec {
+
   val relation = new Relation()
   val properties = new Properties()
   properties.setProperty("annotators", "tokenize, ssplit, parse, lemma")
